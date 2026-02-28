@@ -1,0 +1,30 @@
+{
+  "name": "notbigbrother",
+  "version": "1.0.0",
+  "description": "---",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "bundle": "browserify public/js/demo.js -o public/js/demo.bundle.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zonde246/NotBigBrother.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Zonde246/NotBigBrother/issues"
+  },
+  "homepage": "https://github.com/Zonde246/NotBigBrother#readme",
+  "dependencies": {
+    "blind-signatures": "^1.0.7",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "browserify": "^17.0.1"
+  }
+}
