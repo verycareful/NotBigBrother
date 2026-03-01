@@ -92,6 +92,35 @@
     }
     .demo-note strong { color: var(--text-light, #e8e8f0); }
 
+    /* Camera modal */
+    .camera-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .camera-modal.open { display: flex; }
+    .camera-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-width: 480px;
+      width: 100%;
+    }
+    .camera-box video {
+      width: 100%;
+      border-radius: 8px;
+      background: #000;
+    }
+    .camera-actions { display: flex; gap: 10px; }
+
     .back-link {
       display: inline-flex;
       align-items: center;
@@ -115,6 +144,7 @@
         <a href="/#how-it-works">How It Works</a>
         <a href="/#threat-model">Threat Model</a>
         <a href="https://github.com/notbigbrother/notbigbrother" target="_blank" rel="noopener">GitHub</a>
+        <a href="/verify" class="btn-primary">Get Verified</a>
       </div>
     </div>
   </nav>
@@ -126,10 +156,44 @@
       <div class="badge" style="margin-bottom: 16px;">Live Demo</div>
       <h1>Blind Signature Flow</h1>
       <p>
-        Walk through every step of the NotBigBrother protocol in your browser.
-        All cryptographic operations happen locally — the server only sees a blinded hash, never your token.
+        Walk through the full NotBigBrother flow: age estimation via CV, then the blind signature protocol.
+        Your image never leaves this server. All cryptographic operations run locally in your browser —
+        the server only sees a blinded hash, never your token.
       </p>
     </div>
+
+    <!-- Step 0: Age Estimation -->
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">0</div>
+        <div class="step-title">Verify Age via Face Estimation</div>
+        <div class="step-status idle" id="s0-status">·</div>
+      </div>
+      <div class="step-desc">
+        Upload a photo. Your image is sent only to <em>this</em> server — never to any third party.
+        Age is estimated locally using DeepFace. The image is discarded immediately after analysis;
+        only the numeric result is kept in memory for this session.
+      </div>
+      <input type="file" id="age-file-input" accept="image/*" style="display:none">
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-primary" id="btn-s0-upload">Upload Photo</button>
+        <button class="btn btn-primary" id="btn-s0-camera">Use Camera</button>
+      </div>
+      <pre class="step-output" id="s0-output">Waiting…</pre>
+    </div>
+
+    <!-- Camera modal -->
+    <div class="camera-modal" id="camera-modal">
+      <div class="camera-box">
+        <video id="camera-preview" autoplay playsinline muted></video>
+        <div class="camera-actions">
+          <button class="btn btn-primary" id="btn-camera-snap">Take Photo</button>
+          <button class="btn" id="btn-camera-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-connector">↓ (age confirmed ≥ 18 — proceed to blind signature)</div>
 
     <!-- Step 1 -->
     <div class="step-card">

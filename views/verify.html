@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NotBigBrother — Get Verified</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    .verify-page {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 120px 24px 80px;
+    }
+    .verify-header { margin-bottom: 40px; }
+    .verify-header h1 { font-size: 2rem; font-weight: 800; margin-bottom: 10px; }
+    .verify-header p { color: var(--text-2); line-height: 1.7; }
+
+    /* Upload card */
+    .upload-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      text-align: center;
+    }
+    .upload-icon {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: rgba(99,102,241,0.12);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem;
+    }
+    .upload-title { font-size: 1.1rem; font-weight: 600; }
+    .upload-sub { font-size: 0.88rem; color: var(--text-2); line-height: 1.6; }
+    .upload-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+    /* Progress panel — hidden until a photo is submitted */
+    .progress-panel {
+      display: none;
+      margin-top: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 32px;
+    }
+    .progress-panel.visible { display: block; }
+
+    .progress-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 20px;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.78rem;
+    }
+
+    .progress-steps { display: flex; flex-direction: column; gap: 10px; }
+
+    .pstep {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.9rem;
+    }
+    .pstep-icon {
+      width: 26px; height: 26px; min-width: 26px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.78rem; font-weight: 700;
+      transition: background 0.3s, color 0.3s;
+    }
+    .pstep-icon.idle  { background: var(--border); color: var(--text-2); }
+    .pstep-icon.spin  { background: rgba(245,158,11,0.15); color: #f59e0b; animation: spin-pulse 1s infinite; }
+    .pstep-icon.done  { background: rgba(34,197,94,0.15);  color: #22c55e; }
+    .pstep-icon.err   { background: rgba(244,63,94,0.15);  color: #f43f5e; }
+    @keyframes spin-pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+    .pstep-label { color: var(--text); }
+    .pstep-label.muted { color: var(--text-2); }
+
+    /* Error message */
+    .error-msg {
+      display: none;
+      margin-top: 20px;
+      padding: 14px 18px;
+      background: rgba(244,63,94,0.08);
+      border: 1px solid rgba(244,63,94,0.25);
+      border-radius: 10px;
+      color: #f43f5e;
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    .error-msg.visible { display: block; }
+
+    /* Download section */
+    .download-section {
+      display: none;
+      margin-top: 24px;
+      background: rgba(34,197,94,0.06);
+      border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 14px;
+      padding: 28px 32px;
+      text-align: center;
+    }
+    .download-section.visible { display: block; }
+    .download-check {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+    }
+    .download-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 8px; }
+    .download-sub { color: var(--text-2); font-size: 0.88rem; line-height: 1.7; margin-bottom: 20px; }
+
+    /* Try again link */
+    .try-again {
+      display: none;
+      margin-top: 20px;
+      text-align: center;
+    }
+    .try-again.visible { display: block; }
+    .try-again button {
+      background: none;
+      border: none;
+      color: var(--indigo);
+      cursor: pointer;
+      font-size: 0.9rem;
+      text-decoration: underline;
+      padding: 0;
+    }
+
+    /* Note */
+    .privacy-note {
+      margin-top: 32px;
+      background: rgba(99,102,241,0.06);
+      border: 1px solid rgba(99,102,241,0.15);
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-size: 0.83rem;
+      color: var(--text-2);
+      line-height: 1.7;
+    }
+    .privacy-note strong { color: var(--text); }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--indigo);
+      font-size: 0.88rem;
+      margin-bottom: 32px;
+      text-decoration: none;
+    }
+    .back-link:hover { text-decoration: underline; }
+
+    /* Camera modal (same as demo) */
+    .camera-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .camera-modal.open { display: flex; }
+    .camera-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-width: 480px;
+      width: 100%;
+    }
+    .camera-box video { width: 100%; border-radius: 8px; background: #000; }
+    .camera-actions { display: flex; gap: 10px; }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">
+        <span class="logo-bracket">[</span>NBB<span class="logo-bracket">]</span>
+      </a>
+      <div class="nav-links">
+        <a href="/#how-it-works">How It Works</a>
+        <a href="/#threat-model">Privacy</a>
+        <a href="/demo">Step-by-Step Demo</a>
+        <a href="https://github.com/Zonde246/NotBigBrother" target="_blank" rel="noopener noreferrer" class="nav-github">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="verify-page">
+    <a href="/" class="back-link">&#8592; Back to home</a>
+
+    <div class="verify-header">
+      <h1>Get Verified</h1>
+      <p>Take or upload a photo. We'll estimate your age, issue a cryptographic credential, and hand it straight back to you — no account, no storage.</p>
+    </div>
+
+    <!-- Upload card -->
+    <div class="upload-card" id="upload-card">
+      <div class="upload-icon">&#128247;</div>
+      <div>
+        <div class="upload-title">Upload or take a photo</div>
+        <div class="upload-sub">Your image is analyzed on-server and immediately discarded.<br>Only your estimated age number is ever used.</div>
+      </div>
+      <div class="upload-actions">
+        <button class="btn-primary" id="btn-upload">Upload Photo</button>
+        <button class="btn-secondary" id="btn-camera">Use Camera</button>
+      </div>
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" style="display:none">
+    </div>
+
+    <!-- Progress panel -->
+    <div class="progress-panel" id="progress-panel">
+      <div class="progress-title">Generating your credential&hellip;</div>
+      <div class="progress-steps">
+        <div class="pstep">
+          <div class="pstep-icon idle" id="ps0-icon">·</div>
+          <span class="pstep-label muted" id="ps0-label">Analysing photo</span>
+        </div>
+        <div class="pstep">
+          <div class="pstep-icon idle" id="ps1-icon">·</div>
+          <span class="pstep-label muted" id="ps1-label">Fetching server public key</span>
+        </div>
+        <div class="pstep">
+          <div class="pstep-icon idle" id="ps2-icon">·</div>
+          <span class="pstep-label muted" id="ps2-label">Building token payload</span>
+        </div>
+        <div class="pstep">
+          <div class="pstep-icon idle" id="ps3-icon">·</div>
+          <span class="pstep-label muted" id="ps3-label">Blinding token (your browser)</span>
+        </div>
+        <div class="pstep">
+          <div class="pstep-icon idle" id="ps4-icon">·</div>
+          <span class="pstep-label muted" id="ps4-label">Requesting blind signature</span>
+        </div>
+        <div class="pstep">
+          <div class="pstep-icon idle" id="ps5-icon">·</div>
+          <span class="pstep-label muted" id="ps5-label">Unblinding &amp; verifying</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-msg" id="error-msg"></div>
+    <div class="try-again" id="try-again">
+      <button id="btn-try-again">Try again with a different photo</button>
+    </div>
+
+    <!-- Download section -->
+    <div class="download-section" id="download-section">
+      <div class="download-check">&#10003;</div>
+      <div class="download-title">Your credential is ready</div>
+      <div class="download-sub">
+        Age verified. Credential cryptographically signed.<br>
+        Store the file like a password — it's your anonymous proof of adulthood.
+      </div>
+      <button class="btn-primary" id="btn-download">Download nbb-credential.nbb</button>
+      <div style="margin-top:14px;">
+        <button id="btn-verify-again" style="background:none;border:none;color:var(--indigo);cursor:pointer;font-size:0.88rem;text-decoration:underline;">Get another credential</button>
+      </div>
+    </div>
+
+    <div class="privacy-note">
+      <strong>How this works:</strong> Your photo is sent to the server for age estimation only, then immediately discarded.
+      The resulting credential is signed using a <strong>blind signature</strong> — the server never sees the credential contents,
+      so it cannot track or link your credential to this session.
+      <a href="/demo" style="color:var(--indigo);">See the step-by-step demo</a> to understand every cryptographic step.
+    </div>
+  </main>
+
+  <!-- Camera modal -->
+  <div class="camera-modal" id="camera-modal">
+    <div class="camera-box">
+      <video id="camera-preview" autoplay playsinline muted></video>
+      <div class="camera-actions">
+        <button class="btn-primary" id="btn-snap">Take Photo</button>
+        <button class="btn-secondary" id="btn-camera-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/verify.bundle.js"></script>
+</body>
+</html>

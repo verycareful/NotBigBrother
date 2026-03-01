@@ -1,61 +1,71 @@
-// Nav mobile toggle
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Mobile nav toggle
+// ---------------------------------------------------------------------------
+
 const navToggle = document.querySelector('.nav-toggle');
 const navLinks = document.querySelector('.nav-links');
 
 if (navToggle && navLinks) {
-  navToggle.addEventListener('click', () => {
-    navLinks.classList.toggle('open');
-  });
+  navToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
 
-  // Close on link click
-  navLinks.querySelectorAll('a').forEach(link => {
+  // Close the menu when the user taps any nav link.
+  navLinks.querySelectorAll('a').forEach((link) => {
     link.addEventListener('click', () => navLinks.classList.remove('open'));
   });
 }
 
-// Copy button
-document.querySelectorAll('.copy-btn').forEach(btn => {
+// ---------------------------------------------------------------------------
+// Copy-to-clipboard buttons
+// ---------------------------------------------------------------------------
+
+document.querySelectorAll('.copy-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
-    const targetId = btn.dataset.target;
-    const pre = document.getElementById(targetId);
+    const pre = document.getElementById(btn.dataset.target);
     if (!pre) return;
 
-    const text = pre.textContent;
-    navigator.clipboard.writeText(text).then(() => {
-      const orig = btn.textContent;
+    navigator.clipboard.writeText(pre.textContent).then(() => {
+      const original = btn.textContent;
       btn.textContent = 'Copied!';
       btn.style.color = 'var(--green)';
       setTimeout(() => {
-        btn.textContent = orig;
+        btn.textContent = original;
         btn.style.color = '';
       }, 2000);
     });
   });
 });
 
-// Intersection observer — fade in sections
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('visible');
-      observer.unobserve(entry.target);
-    }
-  });
-}, { threshold: 0.1 });
+// ---------------------------------------------------------------------------
+// Scroll-triggered fade-in via IntersectionObserver
+// ---------------------------------------------------------------------------
 
-document.querySelectorAll('.step, .threat-item, .integrate-feat, .blind-table-wrap, .problem-callout').forEach(el => {
+/**
+ * Selector for all elements that should animate in as they enter the viewport.
+ * Matches the CSS class names used in index.html.
+ */
+const ANIMATED_SELECTOR = '.step, .threat-item, .integrate-feat, .blind-table-wrap, .problem-callout';
+
+const observer = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target); // animate once, then stop observing
+      }
+    });
+  },
+  { threshold: 0.1 }
+);
+
+document.querySelectorAll(ANIMATED_SELECTOR).forEach((el) => {
+  // Initial hidden state set via JS so elements are visible if JS is disabled.
   el.style.opacity = '0';
   el.style.transform = 'translateY(16px)';
   el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
   observer.observe(el);
 });
 
-document.querySelectorAll('.visible').forEach(el => {
-  el.style.opacity = '1';
-  el.style.transform = 'translateY(0)';
-});
-
-// Add visible class logic
-const styleTag = document.createElement('style');
-styleTag.textContent = '.visible { opacity: 1 !important; transform: translateY(0) !important; }';
-document.head.appendChild(styleTag);
+// The `visible` class overrides the inline hidden state once the element
+// enters the viewport.  Defined in the stylesheet (index.html <style> block).

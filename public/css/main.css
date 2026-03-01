@@ -1193,3 +1193,6 @@ strong {
 .hero .container > *:nth-child(3) { animation-delay: 0.18s; }
 .hero .container > *:nth-child(4) { animation-delay: 0.26s; }
 .hero .container > *:nth-child(5) { animation-delay: 0.34s; }
+
+/* Scroll-triggered fade-in — applied by IntersectionObserver in main.js */
+.visible { opacity: 1 !important; transform: translateY(0) !important; }
