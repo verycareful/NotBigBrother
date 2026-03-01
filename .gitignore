@@ -143,6 +143,3 @@ keys/
 
 # Claude Code local config
 .claude/
-
-# Browserify bundle (built from public/js/demo.js)
-public/js/demo.bundle.js
