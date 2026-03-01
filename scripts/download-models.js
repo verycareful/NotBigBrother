@@ -26,7 +26,20 @@ const MODELS = [
 
 fs.mkdirSync(MODELS_DIR, { recursive: true });
 
-/** Follow redirects and stream the final response into destPath. */
+const REDIRECT_CODES = new Set([301, 302, 307, 308]);
+const MAX_REDIRECTS  = 10;
+
+/**
+ * Downloads `url` to `destPath`, following up to MAX_REDIRECTS redirects.
+ * Uses an atomic write (`.tmp` → final) so a failed download never leaves
+ * a partial file at the destination path.
+ *
+ * @param {string} url
+ * @param {string} destPath
+ * @param {string} label  - Human-readable model name for log output.
+ * @param {string} size   - Approximate file size for log output.
+ * @returns {Promise<void>}
+ */
 function download(url, destPath, label, size) {
   return new Promise((resolve, reject) => {
     if (fs.existsSync(destPath)) {
@@ -38,11 +51,11 @@ function download(url, destPath, label, size) {
     const tmp = destPath + '.tmp';
 
     function get(requestUrl, redirects) {
-      if (redirects > 10) return reject(new Error('Too many redirects'));
+      if (redirects > MAX_REDIRECTS) return reject(new Error('Too many redirects'));
       const mod = requestUrl.startsWith('https') ? https : http;
       mod.get(requestUrl, { headers: { 'User-Agent': 'node' } }, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
-          res.resume(); // discard body
+        if (REDIRECT_CODES.has(res.statusCode)) {
+          res.resume(); // discard body before following redirect
           return get(res.headers.location, redirects + 1);
         }
         if (res.statusCode !== 200) {

@@ -1,35 +1,81 @@
 'use strict';
 
+/**
+ * verify.js — automatic blind-signature issuance flow for verify.html.
+ *
+ * Unlike demo.js (which walks the user through each step manually), this
+ * module runs the entire blind-signature protocol in one shot as soon as
+ * the user provides a photo.  The resulting credential is offered as a
+ * download when the flow succeeds.
+ *
+ * Steps (mirrored by the progress panel in verify.html):
+ *   ps0  Age estimation via /api/age-estimate
+ *   ps1  Fetch RSA public key from /api/issuer/public-key
+ *   ps2  Build token payload in-browser
+ *   ps3  Blind the token (blinding factor never leaves the browser)
+ *   ps4  POST blinded message to /api/issuer/request-token
+ *   ps5  Unblind the signature and verify locally
+ */
+
 const BlindSignatures = require('blind-signatures');
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Token lifetime in seconds (1 year).  Server-side expiry policy should match. */
 const TOKEN_LIFETIME_SECONDS = 365 * 24 * 60 * 60;
+
+/** Fetch timeout in milliseconds.  Prevents hanging on an unresponsive server. */
 const FETCH_TIMEOUT_MS = 15_000;
+
+/** Labels for each progress step, indexed to match ps0–ps5. */
+const STEP_LABELS = [
+  'Analysing photo',
+  'Fetching server public key',
+  'Building token payload',
+  'Blinding token (your browser)',
+  'Requesting blind signature',
+  'Unblinding & verifying',
+];
 
 // ---------------------------------------------------------------------------
 // Shared state
 // ---------------------------------------------------------------------------
 
 const state = {
-  N: null,
-  E: null,
-  estimatedAge: null,
-  token: null,
-  tokenString: null,
-  blindResult: null,
+  N:              null,
+  E:              null,
+  token:          null,
+  tokenString:    null,
+  blindResult:    null, // { blinded: BigInteger, r: BigInteger }
   blindSignature: null,
-  unblinded: null,
+  unblinded:      null,
 };
 
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
 
+/**
+ * Generates a cryptographically random hex nonce.
+ *
+ * @param {number} [bytes=16]
+ * @returns {string} Lowercase hex string.
+ */
 function hexNonce(bytes = 16) {
   const buf = new Uint8Array(bytes);
   crypto.getRandomValues(buf);
   return Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * Wrapper around fetch() that aborts after FETCH_TIMEOUT_MS.
+ *
+ * @param {string} url
+ * @param {RequestInit} [options]
+ * @returns {Promise<Response>}
+ */
 async function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -44,22 +90,30 @@ async function fetchWithTimeout(url, options = {}) {
 // UI helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Updates a single progress-step indicator.
+ *
+ * @param {string} id     - Element ID prefix (e.g. 'ps0').
+ * @param {'idle'|'spin'|'done'|'err'} status
+ * @param {string} label  - Human-readable step label.
+ */
 function setStep(id, status, label) {
   const icon = document.getElementById(`${id}-icon`);
   const lbl  = document.getElementById(`${id}-label`);
 
-  icon.className = `pstep-icon ${status}`;
-  if (status === 'spin') icon.textContent = '…';
-  else if (status === 'done') icon.textContent = '✓';
-  else if (status === 'err')  icon.textContent = '✗';
-  else icon.textContent = '·';
+  icon.className   = `pstep-icon ${status}`;
+  icon.textContent = status === 'spin' ? '…'
+                   : status === 'done' ? '✓'
+                   : status === 'err'  ? '✗'
+                   : '·';
 
   if (lbl) {
     lbl.textContent = label;
-    lbl.className = `pstep-label${status === 'idle' ? ' muted' : ''}`;
+    lbl.className   = `pstep-label${status === 'idle' ? ' muted' : ''}`;
   }
 }
 
+/** Displays an error message and reveals the "Try again" button. */
 function showError(msg) {
   const el = document.getElementById('error-msg');
   el.textContent = msg;
@@ -67,45 +121,38 @@ function showError(msg) {
   document.getElementById('try-again').classList.add('visible');
 }
 
+/** Resets the UI and shared state back to the initial condition. */
 function resetUI() {
-  // Hide outcomes
-  document.getElementById('progress-panel').classList.remove('visible');
-  document.getElementById('error-msg').classList.remove('visible');
-  document.getElementById('try-again').classList.remove('visible');
-  document.getElementById('download-section').classList.remove('visible');
-
-  // Reset step indicators
-  ['ps0','ps1','ps2','ps3','ps4','ps5'].forEach((id, i) => {
-    const labels = [
-      'Analysing photo',
-      'Fetching server public key',
-      'Building token payload',
-      'Blinding token (your browser)',
-      'Requesting blind signature',
-      'Unblinding & verifying',
-    ];
-    setStep(id, 'idle', labels[i]);
+  ['progress-panel', 'error-msg', 'try-again', 'download-section'].forEach((id) => {
+    document.getElementById(id).classList.remove('visible');
   });
 
-  // Reset state
-  Object.keys(state).forEach(k => { state[k] = null; });
+  STEP_LABELS.forEach((label, i) => setStep(`ps${i}`, 'idle', label));
+
+  Object.keys(state).forEach((k) => { state[k] = null; });
 }
 
 // ---------------------------------------------------------------------------
-// Full auto-flow
+// Full automatic flow
 // ---------------------------------------------------------------------------
 
+/**
+ * Runs the complete blind-signature issuance pipeline for `file`.
+ * Updates the progress panel after each step and shows an error on failure.
+ *
+ * @param {File} file
+ */
 async function runFlow(file) {
   resetUI();
   document.getElementById('progress-panel').classList.add('visible');
 
-  // --- Step 0: Age estimation ---
+  // Step 0 — Age estimation
   setStep('ps0', 'spin', 'Analysing photo…');
-  const formData = new FormData();
-  formData.append('image', file);
-
   try {
-    const res = await fetchWithTimeout('/api/age-estimate', { method: 'POST', body: formData });
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const res  = await fetchWithTimeout('/api/age-estimate', { method: 'POST', body: formData });
     const data = await res.json();
 
     if (res.status === 422) {
@@ -121,9 +168,9 @@ async function runFlow(file) {
     if (!data.is_adult) {
       setStep('ps0', 'err', 'Not confirmed as adult');
       showError(
-        `Age could not be confirmed as 18+. ` +
-        `Age estimation has a margin of error. ` +
-        `In production this would fall back to a document check.`
+        'Age could not be confirmed as 18+. ' +
+        'Age estimation has a margin of error. ' +
+        'In production this would fall back to a document check.',
       );
       return;
     }
@@ -135,10 +182,10 @@ async function runFlow(file) {
     return;
   }
 
-  // --- Step 1: Fetch public key ---
+  // Step 1 — Fetch public key
   setStep('ps1', 'spin', 'Fetching server public key…');
   try {
-    const res = await fetchWithTimeout('/api/issuer/public-key');
+    const res  = await fetchWithTimeout('/api/issuer/public-key');
     const data = await res.json();
     state.N = data.N;
     state.E = data.E;
@@ -149,20 +196,20 @@ async function runFlow(file) {
     return;
   }
 
-  // --- Step 2: Generate token ---
+  // Step 2 — Build token payload
   setStep('ps2', 'spin', 'Building token payload…');
   const now = Math.floor(Date.now() / 1000);
   state.token = {
-    type: 'age_verified',
-    min_age: 18,
+    type:      'age_verified',
+    min_age:   18,
     issued_at: now,
-    expiry: now + TOKEN_LIFETIME_SECONDS,
-    nonce: hexNonce(),
+    expiry:    now + TOKEN_LIFETIME_SECONDS,
+    nonce:     hexNonce(),
   };
   state.tokenString = JSON.stringify(state.token);
   setStep('ps2', 'done', 'Token payload built');
 
-  // --- Step 3: Blind ---
+  // Step 3 — Blind
   setStep('ps3', 'spin', 'Blinding token locally…');
   state.blindResult = BlindSignatures.blind({
     message: state.tokenString,
@@ -171,13 +218,13 @@ async function runFlow(file) {
   });
   setStep('ps3', 'done', 'Token blinded (blinding factor stays in your browser)');
 
-  // --- Step 4: Request blind signature ---
+  // Step 4 — Request blind signature
   setStep('ps4', 'spin', 'Requesting blind signature…');
   try {
-    const res = await fetchWithTimeout('/api/issuer/request-token', {
-      method: 'POST',
+    const res  = await fetchWithTimeout('/api/issuer/request-token', {
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blindedMessage: state.blindResult.blinded.toString() }),
+      body:    JSON.stringify({ blindedMessage: state.blindResult.blinded.toString() }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.statusText);
@@ -189,19 +236,19 @@ async function runFlow(file) {
     return;
   }
 
-  // --- Step 5: Unblind + verify ---
+  // Step 5 — Unblind and verify
   setStep('ps5', 'spin', 'Unblinding and verifying…');
   state.unblinded = BlindSignatures.unblind({
     signed: state.blindSignature,
-    N: state.N,
-    r: state.blindResult.r,
+    N:      state.N,
+    r:      state.blindResult.r,
   });
 
   const valid = BlindSignatures.verify({
     unblinded: state.unblinded,
-    N: state.N,
-    E: state.E,
-    message: state.tokenString,
+    N:         state.N,
+    E:         state.E,
+    message:   state.tokenString,
   });
 
   if (!valid) {
@@ -211,21 +258,23 @@ async function runFlow(file) {
   }
 
   setStep('ps5', 'done', 'Signature verified — credential ready');
-
-  // Show download UI
   document.getElementById('download-section').classList.add('visible');
 }
 
 // ---------------------------------------------------------------------------
-// Download
+// Credential download
 // ---------------------------------------------------------------------------
 
+/**
+ * Serialises the completed credential as "nbb1.<base64url>" and triggers a
+ * browser download.
+ */
 function downloadCredential() {
   const payload = {
-    token: state.token,
+    token:     state.token,
     signature: state.unblinded.toString(),
     publicKey: { N: state.N, E: state.E },
-    issuedAt: new Date().toISOString(),
+    issuedAt:  new Date().toISOString(),
   };
 
   const b64 = btoa(JSON.stringify(payload))
@@ -234,9 +283,9 @@ function downloadCredential() {
     .replace(/=+$/, '');
 
   const blob = new Blob([`nbb1.${b64}`], { type: 'application/octet-stream' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
   a.download = 'nbb-credential.nbb';
   a.click();
   URL.revokeObjectURL(url);
@@ -262,7 +311,10 @@ function closeCameraModal() {
 
 async function openCameraModal() {
   try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: false,
+    });
   } catch (err) {
     showError(`Camera error: ${err.message}`);
     return;
@@ -272,15 +324,17 @@ async function openCameraModal() {
 }
 
 function snapPhoto() {
-  const video = document.getElementById('camera-preview');
+  const video  = document.getElementById('camera-preview');
   const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
+  canvas.width  = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0);
   closeCameraModal();
-  canvas.toBlob((blob) => {
-    runFlow(new File([blob], 'snapshot.jpg', { type: 'image/jpeg' }));
-  }, 'image/jpeg', 0.92);
+  canvas.toBlob(
+    (blob) => runFlow(new File([blob], 'snapshot.jpg', { type: 'image/jpeg' })),
+    'image/jpeg',
+    0.92,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -303,19 +357,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-snap').addEventListener('click', snapPhoto);
   document.getElementById('btn-camera-cancel').addEventListener('click', closeCameraModal);
 
+  // Close camera modal when clicking the backdrop.
   document.getElementById('camera-modal').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeCameraModal();
   });
 
   document.getElementById('btn-download').addEventListener('click', downloadCredential);
 
-  document.getElementById('btn-try-again').addEventListener('click', () => {
-    resetUI();
-    fileInput.click();
-  });
-
-  document.getElementById('btn-verify-again').addEventListener('click', () => {
-    resetUI();
-    fileInput.click();
+  // Both "try again" and "verify again" restart the file picker.
+  ['btn-try-again', 'btn-verify-again'].forEach((id) => {
+    document.getElementById(id).addEventListener('click', () => {
+      resetUI();
+      fileInput.click();
+    });
   });
 });
