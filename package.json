@@ -2,16 +2,29 @@
   "name": "notbigbrother",
   "version": "1.0.0",
   "description": "---",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts",
     "postinstall": "node scripts/download-models.js",
     "download-models": "node scripts/download-models.js",
     "bundle": "browserify public/js/demo.js -o public/js/demo.bundle.js",
     "bundle:verify": "browserify public/js/verify.js -o public/js/verify.bundle.js",
     "bundle:all": "npm run bundle && npm run bundle:verify",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "roots": ["<rootDir>/src"],
+    "testMatch": ["**/__tests__/**/*.test.ts"],
+    "moduleFileExtensions": ["ts", "js", "json"],
+    "collectCoverageFrom": ["src/**/*.ts", "!src/global.d.ts", "!src/types/**"],
+    "transform": {
+      "^.+\\.tsx?$": ["ts-jest", { "tsconfig": "tsconfig.test.json" }]
+    }
   },
   "repository": {
     "type": "git",
@@ -34,6 +47,16 @@
     "sharp": "^0.34.5"
   },
   "devDependencies": {
-    "browserify": "^17.0.1"
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^25.3.3",
+    "@types/supertest": "^7.2.0",
+    "browserify": "^17.0.1",
+    "jest": "^30.2.0",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }
