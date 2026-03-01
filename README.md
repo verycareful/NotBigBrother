@@ -181,7 +181,7 @@ npm run server
 npm run demo
 ```
 
-Full documentation at [docs link].
+Full setup and usage guide: [SETUP.md](SETUP.md).
 
 ---
 

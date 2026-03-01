@@ -110,21 +110,18 @@ async function estimateAgeFromFile(file) {
       return;
     }
 
-    state.estimatedAge = data.estimated_age;
     state.ageVerified = data.is_adult;
 
     if (data.is_adult) {
       updateStep('s0', 'ok',
-        `✓ Age estimated: ~${data.estimated_age} years old\n` +
         `✓ Adult confirmed (≥ 18)\n\n` +
         `Your image was processed on-server and immediately discarded.\n` +
-        `Only this number was retained. Proceed to step 1.`
+        `No age or biometric data was retained. Proceed to step 1.`
       );
     } else {
       updateStep('s0', 'fail',
-        `✗ Age estimated: ~${data.estimated_age} years old\n` +
         `✗ Not confirmed as adult (< 18)\n\n` +
-        `Age estimation has a margin of error of ~5 years.\n` +
+        `Age estimation has a margin of error.\n` +
         `In production this would fall back to a document check.`,
         true
       );
@@ -171,7 +168,6 @@ function generateToken() {
   state.token = {
     type: 'age_verified',
     min_age: 18,
-    estimated_age: state.estimatedAge,
     issued_at: now,
     expiry: now + TOKEN_LIFETIME_SECONDS,
     nonce: hexNonce(),

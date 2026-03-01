@@ -5,7 +5,6 @@
  *
  * Environment variables:
  *   PORT             Listening port (default: 3001)
- *   PYTHON_BIN       Python interpreter used by the age-estimator (default: python3 / python on Windows)
  *   ALLOWED_ORIGINS  Comma-separated list of allowed CORS origins (default: http://localhost:3001)
  */
 

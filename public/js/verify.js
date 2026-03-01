@@ -119,17 +119,16 @@ async function runFlow(file) {
       return;
     }
     if (!data.is_adult) {
-      setStep('ps0', 'err', `Estimated age: ~${data.estimated_age} — not confirmed as adult`);
+      setStep('ps0', 'err', 'Not confirmed as adult');
       showError(
-        `Age estimated at ~${data.estimated_age} years. ` +
-        `Age estimation has a margin of ~5 years. ` +
+        `Age could not be confirmed as 18+. ` +
+        `Age estimation has a margin of error. ` +
         `In production this would fall back to a document check.`
       );
       return;
     }
 
-    state.estimatedAge = data.estimated_age;
-    setStep('ps0', 'done', `Age estimated: ~${data.estimated_age} — adult confirmed`);
+    setStep('ps0', 'done', 'Adult confirmed');
   } catch (err) {
     setStep('ps0', 'err', 'Request failed');
     showError(err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message);
@@ -156,7 +155,6 @@ async function runFlow(file) {
   state.token = {
     type: 'age_verified',
     min_age: 18,
-    estimated_age: state.estimatedAge,
     issued_at: now,
     expiry: now + TOKEN_LIFETIME_SECONDS,
     nonce: hexNonce(),
