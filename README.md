@@ -84,7 +84,7 @@ The website **cannot** determine:
 - Your name
 - Your date of birth
 - Any other website you've ever verified on
-- When or how you originally got verified
+- How you originally got verified
 - Any connection to your identity whatsoever
 
 ### Step 4: Verification (Website and NotBigBrother's Public Key)
