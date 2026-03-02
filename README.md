@@ -238,7 +238,7 @@ Think of it like cash. If you lose a twenty dollar bill the bank cannot give it 
 
 PRs welcome. If you find a flaw in the cryptography, a loophole in the privacy model, or a way this system could be abused, **please open an issue immediately**. Privacy bugs are treated as critical security vulnerabilities.
 
-See [CONTRIBUTING.md] for guidelines.
+See [CONTRIBUTING.md](https://github.com/Zonde246/NotBigBrother/blob/main/CONTRIBUTING.md#contributing-to-notbigbrother) for guidelines.
 
 ---
 
